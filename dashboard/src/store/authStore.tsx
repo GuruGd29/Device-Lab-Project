@@ -25,8 +25,50 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function decodeJwt(token: string): AuthUser | null {
+  try {
+    const base64Url = token.split(".")[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    const decoded = JSON.parse(jsonPayload);
+    return {
+      id: decoded.sub,
+      name: decoded.name || decoded.username || "operator",
+      role: decoded.role || "operator",
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
-  const [auth, setAuth] = useState(() => loadAuth());
+  const [auth, setAuth] = useState(() => {
+    // 1. Check URL query parameters first for iframe quick-link integration
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get("token");
+      if (urlToken) {
+        const user = decodeJwt(urlToken);
+        if (user) {
+          const stored = { token: urlToken, user };
+          saveAuth(stored);
+          // Clean token from address bar to prevent leakage
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return stored;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fall back to standard localStorage
+    return loadAuth();
+  });
 
   // Keep the REST client token + WS connection in sync with the current session. Runs on mount
   // (restoring a persisted session) and whenever auth changes.
@@ -39,6 +81,23 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       dashboardSocket.disconnect();
     }
   }, [auth]);
+
+  // Support postMessage from parent iframe to dynamically login
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === "SET_TOKEN") {
+        const token = event.data.token;
+        const user = decodeJwt(token);
+        if (user) {
+          const stored = { token, user };
+          saveAuth(stored);
+          setAuth(stored);
+        }
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
 
   const login = useCallback(async (username: string, password: string) => {
     const res = await api.login(username, password);
