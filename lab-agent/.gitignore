@@ -1,0 +1,10 @@
+# Python build / install artifacts
+.venv/
+*.egg-info/
+__pycache__/
+*.pyc
+.env
+
+# Local device inventory + paired secrets (never commit)
+devices.yaml
+secrets/

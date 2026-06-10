@@ -1,0 +1,17 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Compose drives the actual UI; these Material3 base themes just set the
+         window background, status-bar handling, and a no-action-bar shell. -->
+    <style name="Theme.DeviceLabCapture" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/black</item>
+        <item name="android:statusBarColor">@color/black</item>
+    </style>
+
+    <!-- Fullscreen variant for the QR overlay: pure black background so the
+         high-contrast (black-on-white) QR pops for the lab agent's scanner. -->
+    <style name="Theme.DeviceLabCapture.Fullscreen" parent="Theme.DeviceLabCapture">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowBackground">@color/white</item>
+    </style>
+
+</resources>

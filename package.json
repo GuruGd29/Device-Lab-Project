@@ -1,0 +1,20 @@
+{
+  "name": "device-lab",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Phase 1 TV & Camera orchestration — cloud control plane, dashboard, shared contracts.",
+  "workspaces": [
+    "packages/contracts",
+    "cloud",
+    "dashboard"
+  ],
+  "scripts": {
+    "build": "npm run -w @device-lab/contracts build && npm run -w cloud build && npm run -w dashboard build",
+    "test": "npm run -w cloud test",
+    "dev:cloud": "npm run -w cloud dev",
+    "dev:dashboard": "npm run -w dashboard dev"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

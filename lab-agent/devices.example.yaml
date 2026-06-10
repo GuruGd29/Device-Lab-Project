@@ -1,0 +1,61 @@
+# Lab Controller Agent — device inventory for THIS lab box.
+#
+# The cloud OWNS the registry (spec §3); this file only declares the physical hardware this
+# agent presents to the cloud on connect via agent.register_devices. Secrets are NEVER inline —
+# each TV references its stored token/client-key/cert via `control_secret_ref` (spec §14).
+#
+# Copy to devices.yaml (or point DEVICES_YAML at it) and edit. In DEV_SIMULATE this file is
+# optional — the agent synthesizes two fake TVs + cameras if it is absent.
+
+tvs:
+  # Samsung Tizen — samsungtvws. control_secret_ref is a dir holding token.txt (auto-written
+  # at first pairing, then reused silently on every reconnect).
+  - tv_id: tv-samsung-livingroom
+    platform: tizen
+    control_protocol: samsung_ws
+    net_ip: 10.0.0.21
+    mac: "aa:bb:cc:11:22:31"
+    vlan: tv-subnet
+    slot_id: rack-A/pos-01
+    rack_position: rack-A/pos-01
+    control_secret_ref: /var/lib/device-lab/secrets/tv-samsung-livingroom
+    firmware_version: "T-KTSDEUC-1480.3"
+    serial: "0AXY3SAMSUNG001"
+
+  # LG webOS — aiowebostv. control_secret_ref is a dir holding client_key.txt.
+  - tv_id: tv-lg-bench
+    platform: webos
+    control_protocol: lg_ssap
+    net_ip: 10.0.0.22
+    mac: "aa:bb:cc:11:22:32"
+    vlan: tv-subnet
+    slot_id: rack-A/pos-02
+    rack_position: rack-A/pos-02
+    control_secret_ref: /var/lib/device-lab/secrets/tv-lg-bench
+    firmware_version: "webOS 23 / 03.30.45"
+    serial: "0AXY3LG00002"
+
+  # Android TV — androidtvremote2. control_secret_ref is a dir holding cert.pem + key.pem.
+  # NOTE: QR calibration falls back to manual_confirm unless ADB_PATH is set (the remote v2
+  # protocol cannot launch a URL). See README.
+  - tv_id: tv-androidtv-shield
+    platform: androidtv
+    control_protocol: androidtv_remote
+    net_ip: 10.0.0.23
+    mac: "aa:bb:cc:11:22:33"
+    vlan: tv-subnet
+    slot_id: rack-A/pos-03
+    rack_position: rack-A/pos-03
+    control_secret_ref: /var/lib/device-lab/secrets/tv-androidtv-shield
+    firmware_version: "Android TV 11 / Shield Experience 9.1"
+    serial: "0AXY3SHIELD003"
+
+cameras:
+  # One mounted capture phone per TV slot. The phone publishes to this agent's SFU via
+  # POST /whip/<camera_id>; the agent assigns its sfu_publish_track at runtime.
+  - camera_id: cam-livingroom
+    slot_id: rack-A/pos-01
+  - camera_id: cam-bench
+    slot_id: rack-A/pos-02
+  - camera_id: cam-shield
+    slot_id: rack-A/pos-03

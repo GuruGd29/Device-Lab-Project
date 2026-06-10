@@ -1,0 +1,50 @@
+# Dev infra for Device Lab Phase 1.
+# Postgres is the registry source of truth; NATS carries presence/health pub-sub.
+# The cloud plane and lab agent normally run on the host during dev (see README), but
+# `cloud` is included here so the whole control plane can come up with one command.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: devicelab
+      POSTGRES_PASSWORD: devicelab
+      POSTGRES_DB: devicelab
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devicelab"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats:
+    image: nats:2-alpine
+    command: ["-js"]            # JetStream on; we use core pub/sub for presence
+    ports:
+      - "4222:4222"
+      - "8222:8222"             # monitoring
+
+  cloud:
+    build:
+      context: .
+      dockerfile: cloud/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://devicelab:devicelab@db:5432/devicelab
+      NATS_URL: nats://nats:4222
+      PORT: "8080"
+      AGENT_SHARED_SECRET: dev-agent-secret
+      JWT_SECRET: dev-jwt-secret
+      RUN_MIGRATIONS: "1"
+    ports:
+      - "8080:8080"
+    profiles: ["full"]          # `docker compose --profile full up` to include the cloud plane
+
+volumes:
+  db-data:

@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "device-lab-agent"
+version = "0.1.0"
+description = "Device Lab Phase 1 — Lab Controller Agent. Holds TV control sessions, runs the local SFU, scans camera feeds for calibration QR codes, and reports device/camera health up to the cloud control plane. Media stays local (spec §3)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Device Lab" }]
+
+# Core deps are intentionally LIGHT so the DEV_SIMULATE path installs without system libs.
+# Everything needed to connect to the cloud, parse config, and exercise the protocol lives here.
+# NOTE: aiortc + numpy are required even for DEV_SIMULATE because the local media plane
+# (synthetic camera tracks + WebRTC subscribe path) is exercised end-to-end in sim mode.
+# They ship as manylinux/macos wheels and do NOT need extra system libraries for the sim path.
+dependencies = [
+  "websockets>=12.0",       # outbound control tunnel client (asyncio)
+  "aiohttp>=3.9",           # local SFU HTTP server (WHIP ingest + camera heartbeat)
+  "aiortc>=1.6",            # local WebRTC media plane (publish/subscribe peer connections)
+  "numpy>=1.24",            # synthetic frame generation + frame math (av/aiortc dependency too)
+  "pyyaml>=6.0",            # devices.yaml parsing
+  "jsonschema>=4.0",        # optional inbound validation against agent-protocol.schema.json
+  # opencv-python-headless + segno ship SELF-CONTAINED wheels (no system libs), so keeping them
+  # in core lets DEV_SIMULATE draw AND decode the calibration QR end-to-end on a bare dev box.
+  # The QR scan of real camera frames also uses cv2.QRCodeDetector when pyzbar is absent.
+  "opencv-python-headless>=4.8",  # QR/AprilTag detection on camera frames (no system libs)
+  "segno>=1.5",                   # pure-Python QR encoder for the synthetic sim feed
+]
+
+[project.optional-dependencies]
+# Heavy hardware deps that DO need host system libs or vendor SDKs. Optional so a dev machine can
+# run DEV_SIMULATE=1 lightly. Install on the real lab box with:  pip install -e ".[hardware]"
+hardware = [
+  "pyzbar>=0.1.9",                # faster/robuster QR decode (needs the zbar shared lib on host)
+  "samsungtvws[async,encrypted]>=2.6",  # Samsung Tizen control (samsung_ws)
+  "androidtvremote2>=0.1.1",      # Android TV remote v2 protocol (androidtv_remote)
+  "aiowebostv>=0.4",              # LG webOS control (lg_ssap)
+]
+
+[project.scripts]
+device-lab-agent = "device_lab_agent.__main__:main"
+
+[tool.setuptools]
+packages = [
+  "device_lab_agent",
+  "device_lab_agent.adapters",
+]
+
+[tool.setuptools.package-data]
+device_lab_agent = ["py.typed"]

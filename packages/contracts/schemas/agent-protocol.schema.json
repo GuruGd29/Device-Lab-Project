@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://device-lab/agent-protocol.schema.json",
+  "title": "Device Lab — Agent control tunnel protocol",
+  "description": "JSON messages over the Agent<->Cloud WebSocket. The Python lab agent validates inbound (CloudToAgent) frames against the CloudToAgent branch and emits AgentToCloud frames. Media never travels this channel — control + WebRTC signaling JSON only.",
+  "$defs": {
+    "RemoteKey": {
+      "enum": ["UP","DOWN","LEFT","RIGHT","OK","BACK","HOME","PLAY","PAUSE","MENU","VOLUME_UP","VOLUME_DOWN","MUTE","CHANNEL_UP","CHANNEL_DOWN","POWER","PLAY_PAUSE","STOP","REWIND","FAST_FORWARD"]
+    },
+    "Platform": { "enum": ["tizen", "webos", "androidtv"] },
+    "ControlProtocol": { "enum": ["samsung_ws", "lg_ssap", "androidtv_remote"] },
+    "TvStatus": { "enum": ["provisioning","free","in_use","no_camera","unhealthy","offline"] },
+    "CameraStatus": { "enum": ["online", "offline", "unhealthy"] }
+  },
+  "AgentToCloud": {
+    "oneOf": [
+      {
+        "type": "object",
+        "required": ["type", "agent_id", "shared_secret", "host"],
+        "properties": {
+          "type": { "const": "agent.hello" },
+          "agent_id": { "type": "string" },
+          "shared_secret": { "type": "string" },
+          "host": {
+            "type": "object",
+            "required": ["sfu_signaling_url", "version"],
+            "properties": {
+              "hostname": { "type": "string" },
+              "sfu_signaling_url": { "type": "string" },
+              "version": { "type": "string" }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": ["type", "agent_id", "tvs", "cameras"],
+        "properties": {
+          "type": { "const": "agent.register_devices" },
+          "agent_id": { "type": "string" },
+          "tvs": { "type": "array", "items": { "$ref": "#/$defs/ReportedTv" } },
+          "cameras": { "type": "array", "items": { "$ref": "#/$defs/ReportedCamera" } }
+        }
+      },
+      {
+        "type": "object",
+        "required": ["type", "agent_id", "tvs", "cameras"],
+        "properties": {
+          "type": { "const": "agent.heartbeat" },
+          "agent_id": { "type": "string" },
+          "tvs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["tv_id", "status"],
+              "properties": {
+                "tv_id": { "type": "string" },
+                "status": { "$ref": "#/$defs/TvStatus" }
+              }
+            }
+          },
+          "cameras": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["camera_id", "status"],
+              "properties": {
+                "camera_id": { "type": "string" },
+                "status": { "$ref": "#/$defs/CameraStatus" },
+                "sfu_publish_track": { "type": ["string", "null"] },
+                "slot_id": { "type": ["string", "null"] }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "required": ["type", "tv_id", "matched"],
+        "properties": {
+          "type": { "const": "calibration.result" },
+          "tv_id": { "type": "string" },
+          "matched": { "type": "boolean" },
+          "camera_id": { "type": "string" },
+          "confidence": { "type": "number" }
+        }
+      },
+      {
+        "type": "object",
+        "required": ["type", "request_id", "tv_id", "ok"],
+        "properties": {
+          "type": { "const": "key.ack" },
+          "request_id": { "type": "string" },
+          "tv_id": { "type": "string" },
+          "ok": { "type": "boolean" },
+          "error": { "type": "string" }
+        }
+      },
+      {
+        "type": "object",
+        "required": ["type", "tv_id", "dashboard_session", "payload"],
+        "properties": {
+          "type": { "enum": ["signal.answer", "signal.candidate"] },
+          "tv_id": { "type": "string" },
+          "dashboard_session": { "type": "string" },
+          "payload": {}
+        }
+      }
+    ]
+  },
+  "CloudToAgent": {
+    "oneOf": [
+      { "type": "object", "required": ["type"], "properties": { "type": { "const": "agent.welcome" }, "heartbeat_interval_seconds": { "type": "number" } } },
+      { "type": "object", "required": ["type", "tv_id", "code_payload"], "properties": { "type": { "const": "calibrate.start" }, "tv_id": { "type": "string" }, "code_payload": { "type": "string" } } },
+      { "type": "object", "required": ["type", "tv_id"], "properties": { "type": { "const": "calibrate.clear" }, "tv_id": { "type": "string" } } },
+      { "type": "object", "required": ["type", "request_id", "tv_id", "key"], "properties": { "type": { "const": "key.press" }, "request_id": { "type": "string" }, "tv_id": { "type": "string" }, "key": { "$ref": "#/$defs/RemoteKey" } } },
+      { "type": "object", "required": ["type", "tv_id", "camera_id", "dashboard_session"], "properties": { "type": { "const": "stream.request" }, "tv_id": { "type": "string" }, "camera_id": { "type": "string" }, "dashboard_session": { "type": "string" } } },
+      { "type": "object", "required": ["type", "tv_id", "dashboard_session"], "properties": { "type": { "const": "stream.teardown" }, "tv_id": { "type": "string" }, "dashboard_session": { "type": "string" } } },
+      { "type": "object", "required": ["type", "tv_id", "dashboard_session", "payload"], "properties": { "type": { "enum": ["signal.offer", "signal.candidate"] }, "tv_id": { "type": "string" }, "dashboard_session": { "type": "string" }, "payload": {} } },
+      { "type": "object", "required": ["type", "tv_id"], "properties": { "type": { "const": "tv.connect" }, "tv_id": { "type": "string" } } },
+      { "type": "object", "required": ["type", "tv_id"], "properties": { "type": { "const": "tv.disconnect" }, "tv_id": { "type": "string" } } }
+    ]
+  },
+  "$defs_extra": {
+    "ReportedTv": {
+      "$comment": "see #/ReportedTv below",
+      "type": "object"
+    }
+  },
+  "ReportedTv": {
+    "type": "object",
+    "required": ["tv_id", "platform", "control_protocol", "status"],
+    "properties": {
+      "tv_id": { "type": "string" },
+      "platform": { "$ref": "#/$defs/Platform" },
+      "control_protocol": { "$ref": "#/$defs/ControlProtocol" },
+      "serial": { "type": ["string", "null"] },
+      "firmware_version": { "type": ["string", "null"] },
+      "net_ip": { "type": ["string", "null"] },
+      "mac": { "type": ["string", "null"] },
+      "vlan": { "type": ["string", "null"] },
+      "slot_id": { "type": ["string", "null"] },
+      "rack_position": { "type": ["string", "null"] },
+      "control_secret_ref": { "type": ["string", "null"] },
+      "status": { "$ref": "#/$defs/TvStatus" }
+    }
+  },
+  "ReportedCamera": {
+    "type": "object",
+    "required": ["camera_id", "status"],
+    "properties": {
+      "camera_id": { "type": "string" },
+      "slot_id": { "type": ["string", "null"] },
+      "sfu_publish_track": { "type": ["string", "null"] },
+      "status": { "$ref": "#/$defs/CameraStatus" }
+    }
+  }
+}

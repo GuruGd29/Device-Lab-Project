@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- spec §3: publish one WebRTC stream + heartbeat. Camera capture + network. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Foreground service so the publisher survives backgrounding (spec §3:
+         "Foreground service for the publisher so it survives backgrounding").
+         FOREGROUND_SERVICE_CAMERA is required from Android 14 (API 34) for a
+         service that keeps the camera open. POST_NOTIFICATIONS is needed (API 33+)
+         to show the mandatory foreground-service notification. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Mounted capture phone faces the TV with its REAR camera. -->
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
+    <application
+        android:name=".CaptureApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.DeviceLabCapture"
+        tools:targetApi="34"
+        android:usesCleartextTraffic="true">
+        <!-- usesCleartextTraffic: lab agents expose the SFU over plain http:// on the LAN, and
+             agent IPs vary per deployment (network-security-config can't express a CIDR range).
+             This is an internal lab appliance on a trusted VLAN, not a public-internet app, so
+             blanket cleartext is the pragmatic, honest choice. If your agent serves HTTPS,
+             remove this and add a <network-security-config> trust anchor instead. -->
+
+
+        <!-- Home + config screen. Keeps screen on / immersive while publishing. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.DeviceLabCapture">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Fullscreen high-contrast QR overlay (spec §3 calibration aid /
+             camera self-identification). Launched on command from MainActivity. -->
+        <activity
+            android:name=".QrOverlayActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.DeviceLabCapture.Fullscreen" />
+
+        <!-- The publisher runs here: a camera-typed foreground service. -->
+        <service
+            android:name=".PublisherService"
+            android:exported="false"
+            android:foregroundServiceType="camera" />
+
+    </application>
+
+</manifest>
